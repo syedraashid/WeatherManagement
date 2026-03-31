@@ -37,8 +37,6 @@ namespace WeatherManagement.Infrastructure.Integration
                 .Where(x => x.IsActive)
                 .ToListAsync();
 
-            var date = DateTime.UtcNow.ToString("yyyy-MM-dd");
-
             var semaphore = new SemaphoreSlim(_settings.MaxConcurrentRequests);
             var results = new List<WeatherData>(locations.Count);
 
@@ -47,7 +45,7 @@ namespace WeatherManagement.Infrastructure.Integration
                 await semaphore.WaitAsync();
                 try
                 {
-                    var data = await ProcessLocation(loc, date);
+                    var data = await ProcessLocation(loc);
                     if (data != null)
                     {
                         lock (results)
@@ -68,7 +66,7 @@ namespace WeatherManagement.Infrastructure.Integration
             await _db.SaveChangesAsync();
         }
 
-        private async Task<WeatherData?> ProcessLocation(Location loc, string date)
+        private async Task<WeatherData?> ProcessLocation(Location loc)
         {
             if (loc.Latitude == null || loc.Longitude == null)
             {
@@ -78,31 +76,29 @@ namespace WeatherManagement.Infrastructure.Integration
 
             try
             {
-                var response = await _api.GetDailySummaryAsync(
+                var response = await _api.GetCurrentWeatherAsync(
                     loc.Latitude.Value,
                     loc.Longitude.Value,
-                    date,
                     _settings.ApiKey
                 );
 
-                if (response.Temperature == null || response.Humidity == null
-                    || response.Pressure == null || response.Wind?.Max == null)
+                if (response.Main == null || response.Wind == null)
                 {
-                    _logger.LogWarning(
-                        "Incomplete weather data received for {City} on {Date} — skipping",
-                        loc.City, date);
+                    _logger.LogWarning("Incomplete weather data received for {City} — skipping", loc.City);
                     return null;
                 }
+
+                var condition = response.Weather?.FirstOrDefault()?.Main ?? "Unknown";
 
                 return new WeatherData
                 {
                     LocationId = loc.Id,
-                    Temperature = response.Temperature.Afternoon,
-                    Humidity = (int)response.Humidity.Afternoon,
-                    Pressure = (int)response.Pressure.Afternoon,
-                    WindSpeed = response.Wind.Max.Speed,
-                    Condition = "Daily Summary",
-                    RecordedAt = DateTime.UtcNow,
+                    Temperature = response.Main.Temp,
+                    Humidity = response.Main.Humidity,
+                    Pressure = response.Main.Pressure,
+                    WindSpeed = response.Wind.Speed,
+                    Condition = condition,
+                    RecordedAt = DateTimeOffset.FromUnixTimeSeconds(response.Dt).UtcDateTime,
                     FetchedAt = DateTime.UtcNow
                 };
             }
