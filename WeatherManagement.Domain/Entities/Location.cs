@@ -13,18 +13,18 @@ namespace WeatherManagement.Domain.Entities
 
         [Required]
         [MaxLength(100)]
-        public string City { get; set; }
+        public string City { get; set; } = string.Empty;
 
         [MaxLength(100)]
         public string? County { get; set; }
 
         [Required]
         [MaxLength(100)]
-        public string Country { get; set; }
+        public string Country { get; set; } = string.Empty;
 
         [Required]
         [MaxLength(10)]
-        public string CountryCode { get; set; }
+        public string CountryCode { get; set; } = string.Empty;
 
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }

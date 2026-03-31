@@ -1,5 +1,6 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.Json;
+
 namespace WeatherManagement.Api.Middleware
 {
     public class GlobalExceptionMiddleware
@@ -23,7 +24,10 @@ namespace WeatherManagement.Api.Middleware
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unhandled exception occurred");
+                _logger.LogError(ex,
+                    "Unhandled exception on {Method} {Path}",
+                    context.Request.Method,
+                    context.Request.Path);
 
                 await HandleExceptionAsync(context, ex);
             }
@@ -57,7 +61,6 @@ namespace WeatherManagement.Api.Middleware
 
         private static string GetSafeMessage(Exception ex, HttpStatusCode statusCode)
         {
-            // Avoid exposing internal details in production
             return statusCode == HttpStatusCode.InternalServerError
                 ? "An unexpected error occurred."
                 : ex.Message;

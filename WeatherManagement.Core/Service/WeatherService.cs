@@ -1,13 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using WeatherManagement.Core.Service;
+using Microsoft.Extensions.Logging;
 using WeatherManagement.Domain.Entities;
-using WeatherManagement.Infrastructure.Configuration;
 using WeatherManagement.Infrastructure.DTO;
-using WeatherManagement.Infrastructure.Integration;
 using WeatherManagement.Infrastructure.Repo;
-
-
 
 namespace WeatherManagement.Core.Service
 {
@@ -38,14 +32,12 @@ namespace WeatherManagement.Core.Service
             _logger = logger;
         }
 
-
         public async Task<WeatherRecordResponse?> FindRecordByIdAsync(long id)
         {
             var record = await _weatherRepo.FindByIdAsync(id);
             if (record == null) return null;
 
-            var locations = await _locationRepo.ListAllAsync();
-            var location = locations.FirstOrDefault(l => l.Id == record.LocationId);
+            var location = await _locationRepo.FindByIdAsync(record.LocationId);
             return location == null ? null : MapToResponse(record, location);
         }
 
@@ -59,18 +51,15 @@ namespace WeatherManagement.Core.Service
                 .Select(r => MapToResponse(r, locationMap[r.LocationId]));
         }
 
-
         public async Task<WeatherRecordResponse?> FetchCurrentByCityAsync(string city)
         {
-            var locations = await _locationRepo.ListAllAsync();
-            var location = locations.FirstOrDefault(l =>
-                l.City.Equals(city, StringComparison.OrdinalIgnoreCase) && l.IsActive);
+            var location = await _locationRepo.FindFirstAsync(
+                l => l.City.ToLower() == city.ToLower() && l.IsActive);
 
             if (location == null) return null;
 
-            var allWeather = await _weatherRepo.ListAllAsync();
-            var record = allWeather
-                .Where(w => w.LocationId == location.Id)
+            var locationId = location.Id;
+            var record = (await _weatherRepo.FindAsync(w => w.LocationId == locationId))
                 .OrderByDescending(w => w.FetchedAt)
                 .FirstOrDefault();
 
@@ -79,54 +68,55 @@ namespace WeatherManagement.Core.Service
 
         public async Task<IEnumerable<WeatherRecordResponse>> FetchAllCurrentAsync()
         {
-            var allWeather = await _weatherRepo.ListAllAsync();
-            var locationMap = (await _locationRepo.ListAllAsync())
-                .Where(l => l.IsActive)
+            var activeLocations = (await _locationRepo.FindAsync(l => l.IsActive))
                 .ToDictionary(l => l.Id);
 
+            var activeIds = activeLocations.Keys.ToArray();
+            var allWeather = await _weatherRepo.FindAsync(w => activeIds.Contains(w.LocationId));
+
             return allWeather
-                .Where(w => locationMap.ContainsKey(w.LocationId))
                 .GroupBy(w => w.LocationId)
                 .Select(g => g.OrderByDescending(w => w.FetchedAt).First())
-                .Select(w => MapToResponse(w, locationMap[w.LocationId]));
+                .Select(w => MapToResponse(w, activeLocations[w.LocationId]));
         }
 
         public async Task<IEnumerable<WeatherRecordResponse>> RetrieveHistoryAsync(string city, int days = 7)
         {
-            var locations = await _locationRepo.ListAllAsync();
-            var location = locations.FirstOrDefault(l =>
-                l.City.Equals(city, StringComparison.OrdinalIgnoreCase) && l.IsActive);
+            var location = await _locationRepo.FindFirstAsync(
+                l => l.City.ToLower() == city.ToLower() && l.IsActive);
 
             if (location == null) return Enumerable.Empty<WeatherRecordResponse>();
 
             var fromDate = DateTime.UtcNow.AddDays(-days);
-            var allWeather = await _weatherRepo.ListAllAsync();
+            var locationId = location.Id;
+            var history = await _weatherRepo.FindAsync(
+                w => w.LocationId == locationId && w.FetchedAt >= fromDate);
 
-            return allWeather
-                .Where(w => w.LocationId == location.Id && w.FetchedAt >= fromDate)
+            return history
                 .OrderByDescending(w => w.FetchedAt)
                 .Select(w => MapToResponse(w, location));
         }
 
         public async Task<WeatherComparisonResponse> BuildComparisonAsync(List<string> cities)
         {
-            var allLocations = (await _locationRepo.ListAllAsync())
-                .Where(l => l.IsActive).ToList();
-            var allWeather = await _weatherRepo.ListAllAsync();
+            var activeLocations = (await _locationRepo.FindAsync(l => l.IsActive)).ToList();
+            var activeIds = activeLocations.Select(l => l.Id).ToArray();
+            var allWeather = await _weatherRepo.FindAsync(w => activeIds.Contains(w.LocationId));
+
+            var weatherByLocation = allWeather
+                .GroupBy(w => w.LocationId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(w => w.FetchedAt).First());
 
             var results = cities
                 .Select(city =>
                 {
-                    var location = allLocations.FirstOrDefault(l =>
+                    var location = activeLocations.FirstOrDefault(l =>
                         l.City.Equals(city, StringComparison.OrdinalIgnoreCase));
                     if (location == null) return null;
 
-                    var record = allWeather
-                        .Where(w => w.LocationId == location.Id)
-                        .OrderByDescending(w => w.FetchedAt)
-                        .FirstOrDefault();
-
-                    return record == null ? null : MapToResponse(record, location);
+                    return weatherByLocation.TryGetValue(location.Id, out var record)
+                        ? MapToResponse(record, location)
+                        : null;
                 })
                 .Where(r => r != null)
                 .Select(r => r!)
@@ -137,20 +127,17 @@ namespace WeatherManagement.Core.Service
 
         public async Task<WeatherSummaryResponse?> ComputeSummaryAsync(string city, int days = 7)
         {
-            var locations = await _locationRepo.ListAllAsync();
-            var location = locations.FirstOrDefault(l =>
-                l.City.Equals(city, StringComparison.OrdinalIgnoreCase) && l.IsActive);
+            var location = await _locationRepo.FindFirstAsync(
+                l => l.City.ToLower() == city.ToLower() && l.IsActive);
 
             if (location == null) return null;
 
             var fromDate = DateTime.UtcNow.AddDays(-days);
-            var allWeather = await _weatherRepo.ListAllAsync();
+            var locationId = location.Id;
+            var history = (await _weatherRepo.FindAsync(
+                w => w.LocationId == locationId && w.FetchedAt >= fromDate)).ToList();
 
-            var history = allWeather
-                .Where(w => w.LocationId == location.Id && w.FetchedAt >= fromDate)
-                .ToList();
-
-            if (!history.Any()) return null;
+            if (history.Count == 0) return null;
 
             return new WeatherSummaryResponse
             {
@@ -166,7 +153,6 @@ namespace WeatherManagement.Core.Service
                 PeriodEnd = history.Max(d => d.FetchedAt)
             };
         }
-
 
         private static WeatherRecordResponse MapToResponse(WeatherData data, Location location) => new()
         {
@@ -187,4 +173,3 @@ namespace WeatherManagement.Core.Service
         };
     }
 }
-

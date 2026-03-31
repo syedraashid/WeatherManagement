@@ -9,14 +9,14 @@ namespace WeatherManagement.Domain.Entities
         [Required]
         public int LocationId { get; set; }
 
-        public Location Location { get; set; }
+        public Location Location { get; set; } = null!;
 
         public double Temperature { get; set; }
         public int Humidity { get; set; }
         public int Pressure { get; set; }
 
         [MaxLength(200)]
-        public string Condition { get; set; }
+        public string Condition { get; set; } = string.Empty;
 
         public double WindSpeed { get; set; }
 

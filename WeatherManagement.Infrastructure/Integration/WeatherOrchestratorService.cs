@@ -1,11 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using WeatherManagement.Domain.Entities;
 using WeatherManagement.Infrastructure.Configuration;
 using WeatherManagement.Infrastructure.Data;
@@ -45,8 +40,7 @@ namespace WeatherManagement.Infrastructure.Integration
             var date = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
             var semaphore = new SemaphoreSlim(_settings.MaxConcurrentRequests);
-
-            var results = new List<WeatherData>();
+            var results = new List<WeatherData>(locations.Count);
 
             var tasks = locations.Select(async loc =>
             {
@@ -91,13 +85,22 @@ namespace WeatherManagement.Infrastructure.Integration
                     _settings.ApiKey
                 );
 
+                if (response.Temperature == null || response.Humidity == null
+                    || response.Pressure == null || response.Wind?.Max == null)
+                {
+                    _logger.LogWarning(
+                        "Incomplete weather data received for {City} on {Date} — skipping",
+                        loc.City, date);
+                    return null;
+                }
+
                 return new WeatherData
                 {
                     LocationId = loc.Id,
-                    Temperature = response.Temperature.Afternoon, 
-                    Humidity = (int)response.Humidity.Afternoon, 
-                    Pressure = (int)response.Pressure.Afternoon, 
-                    WindSpeed = response.Wind.Max.Speed,      
+                    Temperature = response.Temperature.Afternoon,
+                    Humidity = (int)response.Humidity.Afternoon,
+                    Pressure = (int)response.Pressure.Afternoon,
+                    WindSpeed = response.Wind.Max.Speed,
                     Condition = "Daily Summary",
                     RecordedAt = DateTime.UtcNow,
                     FetchedAt = DateTime.UtcNow
@@ -105,7 +108,7 @@ namespace WeatherManagement.Infrastructure.Integration
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed for {City}", loc.City);
+                _logger.LogError(ex, "Failed to fetch weather data for {City}", loc.City);
                 return null;
             }
         }
