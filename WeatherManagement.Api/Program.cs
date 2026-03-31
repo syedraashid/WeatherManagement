@@ -1,10 +1,13 @@
 using Hangfire;
 using Hangfire.Dashboard;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using WeatherManagement.Api.Middleware;
 using WeatherManagement.Core.Service;
 using WeatherManagement.Infrastructure;
 using WeatherManagement.Infrastructure.Configuration;
+using WeatherManagement.Infrastructure.Data;
+using WeatherManagement.Infrastructure.DataSeed;
 using WeatherManagement.Infrastructure.Job;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +24,14 @@ builder.Services.AddScoped<IWeatherService, WeatherService>();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
+
+// Apply pending migrations and seed locations on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<WeatherDbContext>();
+    await db.Database.MigrateAsync();
+}
+await DbSeeder.SeedAsync(app.Services);
 
 app.UseSerilogRequestLogging(opts =>
 {

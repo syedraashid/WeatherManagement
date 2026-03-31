@@ -39,6 +39,7 @@ namespace WeatherManagement.Infrastructure.DataSeed
                     db.Locations.Add(new Location
                     {
                         City = loc.City,
+                        Country = loc.Country,
                         CountryCode = loc.CountryCode,
                         Latitude = loc.Latitude,
                         Longitude = loc.Longitude,
