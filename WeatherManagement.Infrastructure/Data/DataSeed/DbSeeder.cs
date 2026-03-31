@@ -16,10 +16,8 @@ namespace WeatherManagement.Infrastructure.DataSeed
     {
         public static async Task SeedAsync(IServiceProvider services)
         {
-            using var scope = services.CreateScope();
-
-            var db = scope.ServiceProvider.GetRequiredService<WeatherDbContext>();
-            var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+            var db = services.GetRequiredService<WeatherDbContext>();
+            var config = services.GetRequiredService<IConfiguration>();
 
             var settings = config
                 .GetSection("WeatherSettings")
@@ -31,8 +29,8 @@ namespace WeatherManagement.Infrastructure.DataSeed
             foreach (var loc in settings.Locations)
             {
                 var exists = await db.Locations.AnyAsync(x =>
-                    x.City == loc.City &&
-                    x.CountryCode == loc.CountryCode);
+                    x.City.ToLower() == loc.City.ToLower() &&
+                    x.CountryCode.ToLower() == loc.CountryCode.ToLower());
 
                 if (!exists)
                 {

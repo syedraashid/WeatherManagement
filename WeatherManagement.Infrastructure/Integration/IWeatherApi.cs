@@ -7,10 +7,10 @@ namespace WeatherManagement.Infrastructure.Integration
     {
         [Get("/data/2.5/weather")]
         Task<CurrentWeatherResponse> GetCurrentWeatherAsync(
-            [AliasAs("lat")] double lat,
-            [AliasAs("lon")] double lon,
-            [AliasAs("appid")] string apiKey,
-            [AliasAs("units")] string units = "metric"
-        );
+             [AliasAs("lat")] double lat,
+             [AliasAs("lon")] double lon,
+             [AliasAs("appid")] string apiKey,
+             [AliasAs("units")] string units
+         );
     }
 }

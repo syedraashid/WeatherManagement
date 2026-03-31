@@ -25,13 +25,12 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
-// Apply pending migrations and seed locations on startup
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<WeatherDbContext>();
-    await db.Database.MigrateAsync();
+    var services = scope.ServiceProvider;
+    var db = services.GetRequiredService<WeatherDbContext>();
+    await DbSeeder.SeedAsync(services);
 }
-await DbSeeder.SeedAsync(app.Services);
 
 app.UseSerilogRequestLogging(opts =>
 {

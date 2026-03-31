@@ -79,7 +79,8 @@ namespace WeatherManagement.Infrastructure.Integration
                 var response = await _api.GetCurrentWeatherAsync(
                     loc.Latitude.Value,
                     loc.Longitude.Value,
-                    _settings.ApiKey
+                    _settings.ApiKey,
+                    "metric"
                 );
 
                 if (response.Main == null || response.Wind == null)
