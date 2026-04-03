@@ -9,7 +9,7 @@ namespace WeatherManagement.Infrastructure.Integration
 {
     public interface IWeatherOrchestratorService
     {
-        Task FetchAndStoreAsync();
+        Task<int> FetchAndStoreAsync();
     }
 
     public class WeatherOrchestratorService : IWeatherOrchestratorService
@@ -31,7 +31,7 @@ namespace WeatherManagement.Infrastructure.Integration
             _logger = logger;
         }
 
-        public async Task FetchAndStoreAsync()
+        public async Task<int> FetchAndStoreAsync()
         {
             var locations = await _db.Locations
                 .Where(x => x.IsActive)
@@ -64,6 +64,8 @@ namespace WeatherManagement.Infrastructure.Integration
 
             _db.WeatherReadings.AddRange(results);
             await _db.SaveChangesAsync();
+
+            return results.Count;
         }
 
         private async Task<WeatherData?> ProcessLocation(Location loc)

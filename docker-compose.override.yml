@@ -1,0 +1,11 @@
+services:
+  weathermanagement.api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__Dev=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
