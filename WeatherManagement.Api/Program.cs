@@ -1,3 +1,4 @@
+using Azure.Identity;
 using Hangfire;
 using Hangfire.Dashboard;
 using Microsoft.EntityFrameworkCore;
@@ -12,8 +13,32 @@ using WeatherManagement.Infrastructure.Job;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((ctx, lc) => lc
-    .ReadFrom.Configuration(ctx.Configuration));
+// Azure Key Vault — only when a vault URI is configured
+var keyVaultUri = builder.Configuration["Azure:KeyVaultUri"];
+if (!string.IsNullOrWhiteSpace(keyVaultUri))
+{
+    builder.Configuration.AddAzureKeyVault(
+        new Uri(keyVaultUri),
+        new DefaultAzureCredential());
+
+    // Re-add env vars after Key Vault so docker-compose overrides always win locally
+    builder.Configuration.AddEnvironmentVariables();
+}
+
+builder.Host.UseSerilog((ctx, lc) =>
+{
+    lc.ReadFrom.Configuration(ctx.Configuration);
+
+    var cosmosEndpoint = ctx.Configuration["CosmosDb:Endpoint"];
+    if (!string.IsNullOrWhiteSpace(cosmosEndpoint))
+    {
+        lc.WriteTo.AzureCosmosDB(
+            endpointUri: new Uri(cosmosEndpoint),
+            authorizationKey: ctx.Configuration["CosmosDb:AuthKey"]!,
+            databaseName: ctx.Configuration["CosmosDb:Database"] ?? "weatherlogs",
+            collectionName: ctx.Configuration["CosmosDb:Collection"] ?? "applogs");
+    }
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -25,7 +50,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
-// Apply pending migrations and seed locations on startup
+// Apply pending migrations on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<WeatherDbContext>();
@@ -40,13 +65,13 @@ app.UseSerilogRequestLogging(opts =>
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
+app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
+
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     Authorization = new[] { new LocalRequestsOnlyAuthorizationFilter() }

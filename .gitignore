@@ -3,6 +3,22 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Local environment secrets
+.env
+.env.*
+
+# Backup files
+Dockerfile.original
+
+# Claude Code
+.claude/
+
+# Azure Function local settings (contains connection strings)
+**/local.settings.json
+
+# User secrets
+**/secrets.json
+
 # User-specific files
 *.rsuser
 *.suo
@@ -213,6 +229,15 @@ csx/
 # Microsoft Azure Emulator
 ecf/
 rcf/
+
+# Azurite local storage emulator files
+__azurite_db_*
+__blobstorage__/
+__queuestorage__/
+*.azurite
+
+# Serilog rolling log files
+**/logs/
 
 # Windows Store app package directories and files
 AppPackages/

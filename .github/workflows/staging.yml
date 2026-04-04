@@ -1,0 +1,97 @@
+name: Staging Pipeline
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/weathermanagementapi
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore WeatherManagement.sln
+
+      - name: Build
+        run: dotnet build WeatherManagement.sln --no-restore -c Release
+
+      - name: Test
+        run: dotnet test WeatherManagement.sln --no-build -c Release --verbosity normal
+
+  deploy-staging:
+    name: Deploy to Staging (Azure)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    environment: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: WeatherManagement.Api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:staging-${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:staging-latest
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Publish Azure Function
+        run: dotnet publish WeatherManagement.Functions/WeatherManagement.Functions.csproj -c Release -o ./functions-output
+
+      - name: Deploy Azure Function (staging)
+        uses: azure/functions-action@v1
+        with:
+          app-name: weather-sync-fn
+          package: ./functions-output
+          publish-profile: ${{ secrets.AZURE_FUNCTION_PUBLISH_PROFILE }}
+
+      - name: Configure Function App settings
+        run: |
+          az functionapp config appsettings set \
+            --name weather-sync-fn \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --settings \
+              "Azure__KeyVaultUri=${{ secrets.AZURE_KEYVAULT_URI }}" \
+              "AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" \
+              "AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" \
+              "AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}" \
+              "CosmosDb__ConnectionString=@Microsoft.KeyVault(VaultName=${{ secrets.AZURE_KEYVAULT_NAME }};SecretName=CosmosDb--ConnectionString)"
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          images: ${{ env.IMAGE_NAME }}:staging-${{ github.sha }}

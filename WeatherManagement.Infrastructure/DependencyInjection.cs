@@ -1,4 +1,6 @@
 ﻿using Hangfire;
+using WeatherManagement.Domain.Contracts;
+using WeatherManagement.Infrastructure.Services;
 using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -22,16 +24,23 @@ public static class DependencyInjection
         // Settings
         services.AddOptions<WeatherSettings>()
             .Bind(configuration.GetSection(WeatherSettings.SectionName))
+            .PostConfigure(settings =>
+            {
+                // Key Vault secret: WeatherApi--ApiKey
+                var vaultKey = configuration["WeatherApi:ApiKey"];
+                if (!string.IsNullOrEmpty(vaultKey))
+                    settings.ApiKey = vaultKey;
+            })
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        var connectionString = configuration.GetConnectionString("DefaultConnection")!;
+        // Key Vault secret: ConnectionStrings--Dev
+        var connectionString = configuration.GetConnectionString("Dev")!;
 
-        // Database
+        // Database — PostgreSQL (dev only)
         services.AddDbContext<WeatherDbContext>(options =>
-            options.UseNpgsql(
-                connectionString,
-                npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
+            options.UseNpgsql(connectionString,
+                npgsql => npgsql.EnableRetryOnFailure(
                     maxRetryCount: 3,
                     maxRetryDelay: TimeSpan.FromSeconds(5),
                     errorCodesToAdd: null)));
@@ -64,6 +73,9 @@ public static class DependencyInjection
             .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connectionString)));
 
         services.AddHangfireServer(options => options.WorkerCount = 2);
+
+        // Azure Function sync notifier
+        services.AddHttpClient<ISyncNotifier, AzureFunctionSyncNotifier>();
 
         return services;
     }

@@ -13,6 +13,9 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["WeatherManagement.Api/WeatherManagement.Api.csproj", "WeatherManagement.Api/"]
+COPY ["WeatherManagement.Core/WeatherManagement.Core.csproj", "WeatherManagement.Core/"]
+COPY ["WeatherManagement.Infrastructure/WeatherManagement.Infrastructure.csproj", "WeatherManagement.Infrastructure/"]
+COPY ["WeatherManagement.Domain/WeatherManagement.Domain.csproj", "WeatherManagement.Domain/"]
 RUN dotnet restore "./WeatherManagement.Api/WeatherManagement.Api.csproj"
 COPY . .
 WORKDIR "/src/WeatherManagement.Api"
