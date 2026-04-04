@@ -46,7 +46,8 @@ public class SyncLogFunction
             Status = "Completed"
         };
 
-        var container = _cosmos.GetContainer("weatherlogs", "synclogs");
+        var container = _cosmos.GetContainer("weatherlogs", "applogs");
+
         await container.CreateItemAsync(entry, new PartitionKey(entry.Id));
 
         _logger.LogInformation(

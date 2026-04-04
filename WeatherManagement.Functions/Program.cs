@@ -20,7 +20,7 @@ var host = new HostBuilder()
     })
     .ConfigureServices((context, services) =>
     {
-        var connectionString = context.Configuration["CosmosDb__ConnectionString"];
+        var connectionString = context.Configuration["CosmosDb:ConnectionString"];
         if (!string.IsNullOrWhiteSpace(connectionString))
         {
             services.AddSingleton(new CosmosClient(connectionString));
