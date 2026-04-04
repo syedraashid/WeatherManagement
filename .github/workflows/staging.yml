@@ -72,12 +72,11 @@ jobs:
       - name: Publish Azure Function
         run: dotnet publish WeatherManagement.Functions/WeatherManagement.Functions.csproj -c Release -o ./functions-output
 
-      - name: Deploy Azure Function (staging)
+      - name: Deploy Azure Function (Staging)
         uses: azure/functions-action@v1
         with:
           app-name: weather-sync-fn
           package: ./functions-output
-          publish-profile: ${{ secrets.AZURE_FUNCTION_PUBLISH_PROFILE }}
 
       - name: Configure Function App settings
         run: |

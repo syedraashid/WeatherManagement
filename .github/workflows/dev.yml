@@ -78,7 +78,6 @@ jobs:
         with:
           app-name: weather-sync-fn
           package: ./functions-output
-          publish-profile: ${{ secrets.AZURE_FUNCTION_PUBLISH_PROFILE }}
 
       - name: Configure Function App settings
         run: |
