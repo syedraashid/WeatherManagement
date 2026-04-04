@@ -78,6 +78,18 @@ jobs:
           package: ./functions-output
           publish-profile: ${{ secrets.AZURE_FUNCTION_PUBLISH_PROFILE }}
 
+      - name: Configure Function App settings
+        run: |
+          az functionapp config appsettings set \
+            --name weather-sync-fn \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --settings \
+              "Azure__KeyVaultUri=${{ secrets.AZURE_KEYVAULT_URI }}" \
+              "AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" \
+              "AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" \
+              "AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}" \
+              "CosmosDb__ConnectionString=@Microsoft.KeyVault(VaultName=${{ secrets.AZURE_KEYVAULT_NAME }};SecretName=CosmosDb--ConnectionString)"
+
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:

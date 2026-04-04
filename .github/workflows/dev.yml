@@ -61,6 +61,13 @@ jobs:
             ${{ env.IMAGE_NAME }}:dev-${{ github.sha }}
             ${{ env.IMAGE_NAME }}:dev-latest
 
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Publish Azure Function
         run: dotnet publish WeatherManagement.Functions/WeatherManagement.Functions.csproj -c Release -o ./functions-output
 
@@ -70,6 +77,18 @@ jobs:
           app-name: weather-sync-fn
           package: ./functions-output
           publish-profile: ${{ secrets.AZURE_FUNCTION_PUBLISH_PROFILE }}
+
+      - name: Configure Function App settings
+        run: |
+          az functionapp config appsettings set \
+            --name weather-sync-fn \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --settings \
+              "Azure__KeyVaultUri=${{ secrets.AZURE_KEYVAULT_URI }}" \
+              "AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" \
+              "AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" \
+              "AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}" \
+              "CosmosDb__ConnectionString=@Microsoft.KeyVault(VaultName=${{ secrets.AZURE_KEYVAULT_NAME }};SecretName=CosmosDb--ConnectionString)"
 
       - name: Redeploy Railway service
         run: |

@@ -20,6 +20,9 @@ if (!string.IsNullOrWhiteSpace(keyVaultUri))
     builder.Configuration.AddAzureKeyVault(
         new Uri(keyVaultUri),
         new DefaultAzureCredential());
+
+    // Re-add env vars after Key Vault so docker-compose overrides always win locally
+    builder.Configuration.AddEnvironmentVariables();
 }
 
 builder.Host.UseSerilog((ctx, lc) =>

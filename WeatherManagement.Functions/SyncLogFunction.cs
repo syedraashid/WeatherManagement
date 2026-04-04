@@ -1,3 +1,4 @@
+using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -8,20 +9,17 @@ namespace WeatherManagement.Functions;
 
 public class SyncLogFunction
 {
+    private readonly CosmosClient _cosmos;
     private readonly ILogger<SyncLogFunction> _logger;
 
-    public SyncLogFunction(ILogger<SyncLogFunction> logger)
+    public SyncLogFunction(CosmosClient cosmos, ILogger<SyncLogFunction> logger)
     {
+        _cosmos = cosmos;
         _logger = logger;
     }
 
     [Function("LogSync")]
-    [CosmosDBOutput(
-        databaseName: "weatherlogs",
-        containerName: "synclogs",
-        Connection = "CosmosDb__ConnectionString",
-        CreateIfNotExists = true)]
-    public async Task<SyncLogEntry?> RunAsync(
+    public async Task<HttpResponseData> RunAsync(
         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "sync/log")] HttpRequestData req)
     {
         SyncRequest? body = null;
@@ -36,7 +34,7 @@ public class SyncLogFunction
         {
             var bad = req.CreateResponse(HttpStatusCode.BadRequest);
             await bad.WriteStringAsync("Invalid request body.");
-            return null;
+            return bad;
         }
 
         var entry = new SyncLogEntry
@@ -48,11 +46,15 @@ public class SyncLogFunction
             Status = "Completed"
         };
 
+        var container = _cosmos.GetContainer("weatherlogs", "synclogs");
+        await container.CreateItemAsync(entry, new PartitionKey(entry.Id));
+
         _logger.LogInformation(
             "Sync log recorded — TriggeredBy: {TriggeredBy}, Locations: {Count}, At: {SyncedAt}",
             entry.TriggeredBy, entry.LocationCount, entry.SyncedAt);
 
-        return entry;
+        var response = req.CreateResponse(HttpStatusCode.OK);
+        return response;
     }
 }
 
