@@ -23,7 +23,13 @@ var host = new HostBuilder()
         var connectionString = context.Configuration["CosmosDb:ConnectionString"];
         if (!string.IsNullOrWhiteSpace(connectionString))
         {
-            services.AddSingleton(new CosmosClient(connectionString));
+            services.AddSingleton(new CosmosClient(connectionString, new CosmosClientOptions
+            {
+                SerializerOptions = new CosmosSerializationOptions
+                {
+                    PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
+                }
+            }));
         }
     })
     .Build();

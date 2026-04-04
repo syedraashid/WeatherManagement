@@ -46,7 +46,8 @@ public class SyncLogFunction
             Status = "Completed"
         };
 
-        var container = _cosmos.GetContainer("weatherlogs", "applogs");
+        var db = await _cosmos.CreateDatabaseIfNotExistsAsync("weatherlogs");
+        var container = (await db.Database.CreateContainerIfNotExistsAsync("synclogs", "/id")).Container;
 
         await container.CreateItemAsync(entry, new PartitionKey(entry.Id));
 
