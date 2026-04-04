@@ -77,7 +77,7 @@ master branch → staging.yml pipeline
 
 ---
 
-## 1. Azure Resources Setup
+## 2. Azure Resources Setup
 
 ### 1.1 Resource Group
 Create one resource group for everything to keep it organised and avoid cross-region charges.
@@ -238,7 +238,7 @@ Also note your **Subscription ID** from Portal → Subscriptions.
 
 ---
 
-## 2. Railway Setup (Dev)
+## 3. Railway Setup (Dev)
 
 ### 2.1 Create Project
 - railway.app → New Project → **Empty Project**
@@ -275,7 +275,7 @@ The dev pipeline (`dev.yml`) pushes a new Docker image on every push to `Develop
 
 ---
 
-## 3. Key Vault Secrets
+## 4. Key Vault Secrets
 
 All secrets use `--` as separator (maps to `:` in .NET configuration).
 
@@ -288,7 +288,7 @@ All secrets use `--` as separator (maps to `:` in .NET configuration).
 
 ---
 
-## 4. GitHub Actions Secrets
+## 5. GitHub Actions Secrets
 
 Repository → **Settings** → **Secrets and variables** → **Actions**
 
@@ -314,7 +314,7 @@ Repository → **Settings** → **Secrets and variables** → **Actions**
 
 ---
 
-## 5. Errors Encountered & Fixes
+## 6. Errors Encountered & Fixes
 
 ### 5.1 PostgreSQL — Host can't be null
 **Error:** `ArgumentNullException: Host can't be null`
