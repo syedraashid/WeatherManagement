@@ -1,5 +1,7 @@
-﻿using Hangfire;
-using Hangfire.PostgreSql;
+using Hangfire;
+using WeatherManagement.Domain.Contracts;
+using WeatherManagement.Infrastructure.Services;
+using Hangfire.SqlServer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,19 +24,26 @@ public static class DependencyInjection
         // Settings
         services.AddOptions<WeatherSettings>()
             .Bind(configuration.GetSection(WeatherSettings.SectionName))
+            .PostConfigure(settings =>
+            {
+                // Key Vault secret: WeatherApi--ApiKey
+                var vaultKey = configuration["WeatherApi:ApiKey"];
+                if (!string.IsNullOrEmpty(vaultKey))
+                    settings.ApiKey = vaultKey;
+            })
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        // Key Vault secret: ConnectionStrings--DefaultConnection
         var connectionString = configuration.GetConnectionString("DefaultConnection")!;
 
-        // Database
+        // Database — SQL Server (staging)
         services.AddDbContext<WeatherDbContext>(options =>
-            options.UseNpgsql(
-                connectionString,
-                npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
+            options.UseSqlServer(connectionString,
+                sql => sql.EnableRetryOnFailure(
                     maxRetryCount: 3,
                     maxRetryDelay: TimeSpan.FromSeconds(5),
-                    errorCodesToAdd: null)));
+                    errorNumbersToAdd: null)));
 
         // Generic repositories
         // WeatherData.Id is long — must be long here, not int
@@ -56,14 +65,17 @@ public static class DependencyInjection
         // Hangfire job
         services.AddScoped<WeatherFetchJob>();
 
-        // Hangfire with PostgreSQL storage
+        // Hangfire with SQL Server storage
         services.AddHangfire(config => config
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
             .UseSimpleAssemblyNameTypeSerializer()
             .UseRecommendedSerializerSettings()
-            .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(connectionString)));
+            .UseSqlServerStorage(connectionString));
 
         services.AddHangfireServer(options => options.WorkerCount = 2);
+
+        // Azure Function sync notifier
+        services.AddHttpClient<ISyncNotifier, AzureFunctionSyncNotifier>();
 
         return services;
     }

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using WeatherManagement.Domain.Contracts;
 using WeatherManagement.Core.Service;
 using WeatherManagement.Infrastructure.Integration;
 
@@ -10,13 +11,16 @@ namespace WeatherManagement.Api.Controllers
     {
         private readonly IWeatherService _weatherService;
         private readonly IWeatherOrchestratorService _orchestrator;
+        private readonly ISyncNotifier _syncNotifier;
 
         public WeatherController(
             IWeatherService weatherService,
-            IWeatherOrchestratorService orchestrator)
+            IWeatherOrchestratorService orchestrator,
+            ISyncNotifier syncNotifier)
         {
             _weatherService = weatherService;
             _orchestrator = orchestrator;
+            _syncNotifier = syncNotifier;
         }
 
         [HttpGet]
@@ -89,8 +93,9 @@ namespace WeatherManagement.Api.Controllers
         [HttpPost("sync")]
         public async Task<IActionResult> TriggerSync()
         {
-            await _orchestrator.FetchAndStoreAsync();
-            return Ok(new { message = "Weather sync completed successfully." });
+            var count = await _orchestrator.FetchAndStoreAsync();
+            await _syncNotifier.NotifyAsync("manual", count);
+            return Ok(new { message = "Weather sync completed successfully.", locationsUpdated = count });
         }
     }
 }
