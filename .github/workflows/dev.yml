@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - develop
+      - Develop
   pull_request:
     branches:
       - develop
+      - Develop
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/weathermanagementapi
