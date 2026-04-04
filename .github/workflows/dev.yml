@@ -6,6 +6,10 @@ on:
       - develop
       - Develop
 
+permissions:   
+  id-token: write
+  contents: read
+
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/weathermanagementapi
 
