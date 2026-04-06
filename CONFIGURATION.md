@@ -373,9 +373,9 @@ new CosmosClient(connectionString, new CosmosClientOptions
 ### 5.6 Azure Login — OIDC Forbidden
 **Error:** `Error: Forbidden` on `azure/login@v2` step.
 
-**Cause:** `azure/login@v2` defaults to OIDC (federated credentials). The service principal was not configured for OIDC — it uses a client secret instead.
+**Cause:** `azure/login@v2` no need of secrets here so removed that fixed the issue.
 
-**Fix:** Added `client-secret` parameter to the login action:
+**Fix:** removed `client-secret` parameter to the login action:
 ```yaml
 - uses: azure/login@v2
   with:
